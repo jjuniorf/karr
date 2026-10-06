@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Video Embed — 800×480</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;display:grid;place-items:center;
+    background:#080a0f;
+  }
+
+  /* ---------- 800 x 480 STAGE ---------- */
+  #stage{
+    position:relative;width:800px;height:480px;max-width:100%;
+    background:#000;border-radius:14px;overflow:hidden;
+    box-shadow:0 24px 70px rgba(0,0,0,.65),0 0 0 1px #1d2534;
+  }
+
+  #embedFrame{
+    position:absolute;inset:0;width:100%;height:100%;border:0;
+    background:#000;
+  }
+
+  #video{
+    position:absolute;inset:0;width:100%;height:100%;
+    display:none;background:#000;
+  }
+  #stage.video #video{display:block}
+  #stage.video #embedFrame{display:none}
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <iframe id="embedFrame" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
+  <video id="video" controls playsinline webkit-playsinline></video>
+</div>
+
+<script>
+/* ================================================================
+   ⬇️⬇️⬇️  PASTE YOUR EMBED LINK BELOW  ⬇️⬇️⬇️
+
+   Replace the text inside the quotes on the "url" line.
+   Any website works:
+
+     • Any video page     https://any-site.com/video/12345
+     • YouTube            https://www.youtube.com/watch?v=XXXXXXXX
+     • Vimeo              https://vimeo.com/123456789
+     • Twitch             https://twitch.tv/yourchannel
+     • Facebook, TikTok, Instagram, Twitter/X, Dailymotion, etc.
+     • Direct video file  https://example.com/clip.mp4
+     • Full <iframe ...> embed code
+     • Anything else — it will be loaded in an iframe.
+
+   Note: some sites block embedding via X-Frame-Options / CSP.
+   For those, use their official embed URL if available.
+   ================================================================ */
+const CONFIG = {
+  url: "https://dlive.sx/stream/stream-2.php"
+};
+/* ================================================================
+   ⬆️⬆️⬆️  PASTE YOUR EMBED LINK ABOVE  ⬆️⬆️⬆️
+   ================================================================ */
+
+(function () {
+  "use strict";
+
+  const stage      = document.getElementById("stage");
+  const embedFrame = document.getElementById("embedFrame");
+  const video      = document.getElementById("video");
+
+  /* ----------------------------------------------------------------
+     EMBED RESOLVER — decides how to display a given URL.
+
+     • Returns "" if the URL is a direct video file so it plays in
+       the native <video> element.
+     • Returns an embed/iframe URL for anything else.
+     ---------------------------------------------------------------- */
+  function toEmbedUrl(input) {
+    if (!input) return "";
+    let s = String(input).trim();
+
+    // Full <iframe ...> embed code → extract the src
+    const m = s.match(/<iframe[^>]*\ssrc=["']([^"']+)["']/i);
+    if (m) return m[1];
+
+    // Direct video files → native <video> element
+    if (/\.(mp4|m4v|webm|ogg|ogv|mov|mkv|avi|m3u8|mpd|ts|flv)(\?|#|$)/i.test(s)) return "";
+
+    // YouTube
+    if (/youtu\.be\//i.test(s)) {
+      const id = s.split("youtu.be/")[1].split(/[?&/]/)[0];
+      return "https://www.youtube.com/embed/" + id;
+    }
+    if (/youtube\.com\/watch\?/i.test(s)) {
+      try {
+        const u = new URL(s);
+        const id = u.searchParams.get("v");
+        if (id) return "https://www.youtube.com/embed/" + id;
+      } catch (e) {}
+    }
+    if (/youtube\.com\/shorts\//i.test(s)) {
+      const id = s.split("/shorts/")[1].split(/[?&/]/)[0];
+      return "https://www.youtube.com/embed/" + id;
+    }
+    if (/youtube\.com\/embed\//i.test(s)) return s;
+
+    // Vimeo
+    if (/vimeo\.com\/\d+/i.test(s)) {
+      const id = s.match(/vimeo\.com\/(\d+)/)[1];
+      return "https://player.vimeo.com/video/" + id;
+    }
+    if (/player\.vimeo\.com\/video\//i.test(s)) return s;
+
+    // Dailymotion
+    if (/dailymotion\.com\/video\//i.test(s)) {
+      return s.replace("dailymotion.com/video/", "dailymotion.com/embed/video/");
+    }
+    if (/dailymotion\.com\/embed\/video\//i.test(s)) return s;
+
+    // Twitch
+    if (/twitch\.tv\/videos\//i.test(s)) {
+      const id = s.split("/videos/")[1].split(/[?&/]/)[0];
+      return "https://player.twitch.tv/?video=" + id + "&parent=" + location.hostname;
+    }
+    if (/twitch\.tv\//i.test(s) && !/player\.twitch\.tv/i.test(s)) {
+      const ch = s.split("twitch.tv/")[1].split(/[?&/]/)[0];
+      return "https://player.twitch.tv/?channel=" + ch + "&parent=" + location.hostname;
+    }
+    if (/player\.twitch\.tv\//i.test(s)) return s;
+
+    // Facebook
+    if (/facebook\.com\/.+\/videos\//i.test(s) || /fb\.watch\//i.test(s)) {
+      return "https://www.facebook.com/plugins/video.php?href=" + encodeURIComponent(s);
+    }
+
+    // TikTok
+    if (/tiktok\.com\/.+\/video\//i.test(s)) {
+      const id = s.split("/video/")[1].split(/[?&/]/)[0];
+      return "https://www.tiktok.com/embed/v2/" + id;
+    }
+
+    // Instagram
+    if (/instagram\.com\/(p|reel|tv)\//i.test(s)) {
+      const clean = s.split("?")[0].replace(/\/$/, "");
+      return clean + "/embed";
+    }
+
+    // Twitter / X
+    if (/(twitter|x)\.com\/.+\/status\//i.test(s)) {
+      return "https://platform.twitter.com/embed/Tweet.html?url=" + encodeURIComponent(s);
+    }
+
+    // Reddit
+    if (/reddit\.com\/r\/.+\/comments\//i.test(s)) {
+      return s.replace("reddit.com", "redditmedia.com").replace(/\/$/, "") + "/?embed=true";
+    }
+
+    // Streamable
+    if (/streamable\.com\/\w+/i.test(s)) {
+      return s.replace("streamable.com/", "streamable.com/e/");
+    }
+
+    // Imgur
+    if (/imgur\.com\/\w+/i.test(s) && !/i\.imgur\.com/i.test(s)) {
+      const id = s.split("imgur.com/")[1].split(/[?&/]/)[0];
+      return "https://imgur.com/" + id + "/embed";
+    }
+
+    // Everything else → embed the URL as-is in an iframe.
+    return s;
+  }
+
+  /* ---------------- boot ---------------- */
+  (function boot() {
+    // Allow ?v=<url> to override the CONFIG url at runtime
+    const q = new URLSearchParams(location.search);
+    const url = q.get("v") || CONFIG.url;
+
+    if (!url || url === "PASTE_YOUR_EMBED_LINK_HERE") {
+      // Nothing to play — show a hint inside the frame
+      embedFrame.srcdoc =
+        '<body style="margin:0;background:#0e131c;color:#8b97ab;' +
+        'font:14px system-ui,sans-serif;display:grid;place-items:center;height:100%">' +
+        'Paste your embed link inside <b style="color:#e8ecf3">CONFIG.url</b> in the code.' +
+        '</body>';
+      return;
+    }
+
+    const embed = toEmbedUrl(url);
+
+    if (embed) {
+      embedFrame.src = embed;
+    } else {
+      // Direct video file → native <video> with browser controls
+      stage.classList.add("video");
+      video.src = url;
+      video.play().catch(() => {});
+    }
+  })();
+
+})();
+</script>
+</body>
+</html>
